@@ -1,30 +1,32 @@
-## `scanner.py`
-#python
 #!/usr/bin/env python3
-# Simple local ping sweep (no raw sockets dependency version)
-import subprocess
+from scapy.all import ARP, Ether, srp
 import sys
-from ipaddress import IPv4Network
 
-def ping(ip):
-    try:
-        out = subprocess.run(["ping","-c","1","-W","1",str(ip)],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return out.returncode == 0
-    except Exception:
-        return False
+def arp_scan(network):
+    print(f"Scanning network: {network}")
+    arp = ARP(pdst=network)
+    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+    packet = ether / arp
 
-def sweep(network_cidr):
-    net = IPv4Network(network_cidr)
-    alive = []
-    for ip in net.hosts():
-        if ping(ip):
-            alive.append(str(ip))
-            print("Alive:", ip)
-    print("Alive hosts:", alive)
+    result = srp(packet, timeout=2, verbose=0)[0]
+
+    devices = []
+    for sent, received in result:
+        devices.append({"ip": received.psrc, "mac": received.hwsrc})
+
+    return devices
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 scanner.py 192.168.1.0/24")
+        print("Usage: sudo python3 scanner.py 192.168.1.0/24")
         sys.exit(1)
-    sweep(sys.argv[1])
+
+    network = sys.argv[1]
+    devices = arp_scan(network)
+
+    if not devices:
+        print("No devices found.")
+    else:
+        print("Discovered devices:")
+        for d in devices:
+            print(f"IP: {d['ip']}   MAC: {d['mac']}")
