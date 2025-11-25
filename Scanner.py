@@ -1,5 +1,5 @@
 ## `scanner.py`
-```python
+#python
 #!/usr/bin/env python3
 # Simple local ping sweep (no raw sockets dependency version)
 import subprocess
