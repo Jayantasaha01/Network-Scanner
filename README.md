@@ -1,5 +1,9 @@
-# Network Scanner (Safe)
+# Network Scanner using ARM Table
 
-Usage:
+#Usage:
 ```bash
-python3 scanner.py 192.168.1.0/24
+#sudo python3 Scanner.py
+
+#Pre-requisites
+#For Apple Private Relay; toggle off the option for better scanning
+
