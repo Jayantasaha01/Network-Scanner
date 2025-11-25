@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from scapy.all import ARP, Ether, srp
-import netifaces
+import netifaces2 as netifaces
 
 def get_local_network():
     """Auto-detect local network range from default interface."""
