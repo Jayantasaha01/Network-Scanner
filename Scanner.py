@@ -1,74 +1,34 @@
 #!/usr/bin/env python3
 import subprocess
 import re
-import ipaddress
-import threading
-import queue
 
-def get_local_network():
-    """Extract local network from ifconfig output."""
-    output = subprocess.check_output("ifconfig", shell=True).decode()
-    match = re.search(r"inet (\d+\.\d+\.\d+)\.(\d+)", output)
-    if not match:
-        raise Exception("Could not detect local IP")
-    
-    base_net = match.group(1)  # first 3 octets
-    return f"{base_net}.0/24"
-
-def ping_host(ip, out_queue):
-    """Ping an IP once, quietly, and report if alive."""
-    result = subprocess.run(
-        ["ping", "-c", "1", "-W", "1", ip],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    if result.returncode == 0:
-        out_queue.put(ip)
-
-def scan_network(network_cidr):
-    """Ping sweep entire /24 range using threads."""
-    net = ipaddress.IPv4Network(network_cidr, strict=False)
-    live_hosts = []
-    q = queue.Queue()
-    threads = []
-
-    print(f"Scanning {network_cidr} ...")
-
-    for ip in net.hosts():
-        t = threading.Thread(target=ping_host, args=(str(ip), q))
-        t.start()
-        threads.append(t)
-    
-    for t in threads:
-        t.join()
-
-    while not q.empty():
-        live_hosts.append(q.get())
-
-    return sorted(live_hosts)
-
-def get_mac(ip):
-    """Lookup MAC address from ARP table."""
+def scan_with_arp():
     try:
-        output = subprocess.check_output(f"arp -n {ip}", shell=True).decode()
-        match = re.search(r" ([0-9a-f:]{17}) ", output, re.IGNORECASE)
-        if match:
-            return match.group(1)
+        output = subprocess.check_output("arp -a", shell=True).decode()
     except:
-        pass
-    return "Unknown"
+        print("Error running arp -a")
+        return []
+
+    devices = []
+    lines = output.splitlines()
+
+    for line in lines:
+        match = re.search(r"\((\d+\.\d+\.\d+\.\d+)\)\sat\s([0-9a-f:]{17})", line, re.IGNORECASE)
+        if match:
+            ip = match.group(1)
+            mac = match.group(2).lower()
+            devices.append({"ip": ip, "mac": mac})
+
+    return devices
 
 if __name__ == "__main__":
-    print("Detecting network...")
-    network = get_local_network()
-    print("Detected:", network)
+    print("Scanning using ARP table...\n")
 
-    live_hosts = scan_network(network)
+    devices = scan_with_arp()
 
-    print("\nDiscovering devices...\n")
-    if not live_hosts:
-        print("No devices found.")
+    if not devices:
+        print("No devices found. Try connecting to a different WiFi network.")
     else:
-        for ip in live_hosts:
-            mac = get_mac(ip)
-            print(f"{ip}  →  {mac}")
+        print("Found devices:\n")
+        for d in devices:
+            print(f"{d['ip']}  →  {d['mac']}")
